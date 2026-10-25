@@ -1,0 +1,61 @@
+name: Build Android APK
+on: [workflow_dispatch]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Unzip project
+        run: unzip project-clean.zip
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '21'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build Web Assets (SPA mode)
+        run: npx vite build
+
+      - name: Prepare dist for Capacitor
+        run: |
+          mkdir -p dist
+          if [ -f "dist/client/_shell.html" ]; then
+            cp dist/client/_shell.html dist/index.html
+            cp -r dist/client/* dist/
+          elif [ -f ".output/public/_shell.html" ]; then
+            cp .output/public/_shell.html dist/index.html
+            cp -r .output/public/* dist/
+          elif [ -f "_shell.html" ]; then
+            cp _shell.html dist/index.html
+          fi
+
+      - name: Add and Sync Capacitor
+        run: |
+          npx cap add android
+          npx cap sync android
+
+      - name: Build APK with Gradle
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: kryazh-app-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
