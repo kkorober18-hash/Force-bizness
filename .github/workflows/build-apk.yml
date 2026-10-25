@@ -29,32 +29,43 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Fix Vite Config for Capacitor
+        run: |
+          node -e "
+            const fs = require('fs');
+            let v = fs.readFileSync('vite.config.ts', 'utf8');
+            
+            // 1. Добавляем base: './' для относительных путей
+            if (!v.includes('base:')) {
+              v = v.replace('export default defineConfig({', \"export default defineConfig({\n  base: './',\");
+            }
+            
+            // 2. Включаем SPA режим для TanStack Start, чтобы создавался index.html
+            if (v.includes('tanstackStart({')) {
+               v = v.replace('tanstackStart({', 'tanstackStart({ spa: { enabled: true, prerender: { crawlLinks: true, outputPath: \"index.html\" } }, ');
+            }
+            fs.writeFileSync('vite.config.ts', v);
+          "
+
       - name: Build Web Assets
         run: npm run build
 
       - name: Prepare dist for Capacitor
         run: |
-          # 1. Принудительно указываем Capacitor искать в папке dist
+          # Принудительно указываем Capacitor искать в папке dist
           echo '{"appId":"com.example.app","appName":"Force-bizness","webDir":"dist"}' > capacitor.config.json
           
-          # 2. Создаем папку dist и копируем туда результат сборки
           mkdir -p dist
+          # Ищем, куда Vite сложил файлы, и копируем их в dist
           if [ -d ".vercel/output/static" ]; then
             cp -r .vercel/output/static/* dist/
-          elif [ -d ".output/public" ]; then
-            cp -r .output/public/* dist/
           elif [ -d "dist/client" ]; then
             cp -r dist/client/* dist/
           fi
           
-          # 3. Переименовываем _shell.html в index.html
-          if [ -f "dist/_shell.html" ]; then
+          # Если index.html нет, но есть _shell.html - переименовываем
+          if [ ! -f "dist/index.html" ] && [ -f "dist/_shell.html" ]; then
             mv dist/_shell.html dist/index.html
-          fi
-          
-          # 4. Если index.html все еще нет, создаем простую заглушку
-          if [ ! -f "dist/index.html" ]; then
-            echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>App</title></head><body><div id="root"></div></body></html>' > dist/index.html
           fi
 
       - name: Add and Sync Capacitor
