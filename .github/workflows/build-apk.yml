@@ -29,21 +29,25 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build Web Assets (SPA mode)
-        run: npx vite build
-
-      - name: Prepare dist for Capacitor
+      # --- АВТОМАТИЧЕСКОЕ ИСПРАВЛЕНИЕ НАСТРОЕК ---
+      - name: Fix Capacitor and Vite Configs
         run: |
-          mkdir -p dist
-          if [ -f "dist/client/_shell.html" ]; then
-            cp dist/client/_shell.html dist/index.html
-            cp -r dist/client/* dist/
-          elif [ -f ".output/public/_shell.html" ]; then
-            cp .output/public/_shell.html dist/index.html
-            cp -r .output/public/* dist/
-          elif [ -f "_shell.html" ]; then
-            cp _shell.html dist/index.html
-          fi
+          # Принудительно указываем папку dist для Capacitor
+          echo '{"appId":"com.example.app","appName":"Force-bizness","webDir":"dist"}' > capacitor.config.json
+          
+          # Включаем SPA режим для TanStack Start (создаем временный файл конфигурации)
+          node -e "
+            const fs = require('fs');
+            let v = fs.readFileSync('vite.config.ts', 'utf8');
+            if (!v.includes('spa: {')) {
+              v = v.replace('tanstackStart({', 'tanstackStart({ spa: { enabled: true },');
+            }
+            fs.writeFileSync('vite.config.ts', v);
+          "
+      # -------------------------------------------
+
+      - name: Build Web Assets
+        run: npm run build:web
 
       - name: Add and Sync Capacitor
         run: |
