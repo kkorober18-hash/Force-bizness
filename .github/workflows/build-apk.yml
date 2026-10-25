@@ -29,25 +29,26 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      # --- АВТОМАТИЧЕСКОЕ ИСПРАВЛЕНИЕ НАСТРОЕК ---
-      - name: Fix Capacitor and Vite Configs
+      - name: Build Web Assets
+        run: npm run build
+
+      - name: Prepare dist for Capacitor
         run: |
-          # Принудительно указываем папку dist для Capacitor
+          # 1. Принудительно указываем Capacitor искать в папке dist
           echo '{"appId":"com.example.app","appName":"Force-bizness","webDir":"dist"}' > capacitor.config.json
           
-          # Включаем SPA режим для TanStack Start (создаем временный файл конфигурации)
-          node -e "
-            const fs = require('fs');
-            let v = fs.readFileSync('vite.config.ts', 'utf8');
-            if (!v.includes('spa: {')) {
-              v = v.replace('tanstackStart({', 'tanstackStart({ spa: { enabled: true },');
-            }
-            fs.writeFileSync('vite.config.ts', v);
-          "
-      # -------------------------------------------
-
-      - name: Build Web Assets
-        run: npm run build:web
+          # 2. Копируем собранные клиентские файлы в dist
+          if [ -d "dist/client" ]; then
+            cp -r dist/client/* dist/
+          fi
+          
+          # 3. Находим файл оболочки и переименовываем его в index.html
+          SHELL_FILE=$(find dist -name "_shell.html" -o -name "index.html" | head -n 1)
+          if [ -n "$SHELL_FILE" ]; then
+            cp "$SHELL_FILE" dist/index.html
+          else
+            echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>App</title></head><body><div id="root"></div></body></html>' > dist/index.html
+          fi
 
       - name: Add and Sync Capacitor
         run: |
