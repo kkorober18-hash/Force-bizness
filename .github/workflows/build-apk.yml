@@ -37,16 +37,23 @@ jobs:
           # 1. Принудительно указываем Capacitor искать в папке dist
           echo '{"appId":"com.example.app","appName":"Force-bizness","webDir":"dist"}' > capacitor.config.json
           
-          # 2. Копируем собранные клиентские файлы в dist
-          if [ -d "dist/client" ]; then
+          # 2. Создаем папку dist и копируем туда результат сборки
+          mkdir -p dist
+          if [ -d ".vercel/output/static" ]; then
+            cp -r .vercel/output/static/* dist/
+          elif [ -d ".output/public" ]; then
+            cp -r .output/public/* dist/
+          elif [ -d "dist/client" ]; then
             cp -r dist/client/* dist/
           fi
           
-          # 3. Находим файл оболочки и переименовываем его в index.html
-          SHELL_FILE=$(find dist -name "_shell.html" -o -name "index.html" | head -n 1)
-          if [ -n "$SHELL_FILE" ]; then
-            cp "$SHELL_FILE" dist/index.html
-          else
+          # 3. Переименовываем _shell.html в index.html
+          if [ -f "dist/_shell.html" ]; then
+            mv dist/_shell.html dist/index.html
+          fi
+          
+          # 4. Если index.html все еще нет, создаем простую заглушку
+          if [ ! -f "dist/index.html" ]; then
             echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>App</title></head><body><div id="root"></div></body></html>' > dist/index.html
           fi
 
